@@ -149,7 +149,7 @@ install() {
         PART1="${P[0]}"; PART2="${P[1]}"
 
         echo "Formatting partitions..."
-        mkfs.ext2 -N boot "$PART1"
+        mkfs.vfat -n boot "$PART1"
         if [[ "$ROOT_FS" == "btrfs" ]]; then # mkfs.btrfs requires -f flag to reformat an existing partition, mkfs.extX doesn't require nor support said flag
             mkfs."$ROOT_FS" -f "$PART2"
         else
