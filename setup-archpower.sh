@@ -14,7 +14,7 @@ if ping -c 1 -W 2 google.com > /dev/null 2>&1; then
     echo -e "[\e[32m OK \e[0m] Network (eth0) is UP, continuing."
 else
     echo -e "[\e[31mERROR\e[0m] No internet connection, configuring internet connection."
-    
+
     # network configuration TODO
 fi
 
@@ -132,7 +132,7 @@ install() {
         echo "###################################################"
         echo "Partition plan for $DISK:"
         echo "###################################################"
-        echo "  /boot  ->  64MiB      ext2"
+        echo "  /boot  ->  64MiB      fat32"
         echo "  /      ->  $ROOT_SIZE   $ROOT_FS"
         echo "###################################################"
         echo -e "Warning: This will \e[31mPERMANENTLY DELETE\e[0m all data on $DISK!"
@@ -142,14 +142,14 @@ install() {
 
         parted -s "$DISK" \
             mklabel msdos \
-            mkpart primary ext2 1MiB 64MiB \
+            mkpart primary fat32 1MiB 64MiB \
             mkpart primary "$ROOT_FS" 64MiB "$ROOT_SIZE"
 
         mapfile -t P < <(lsblk -lnpo NAME "$DISK" | tail -n +2)
         PART1="${P[0]}"; PART2="${P[1]}"
 
         echo "Formatting partitions..."
-        mkfs.ext2 -L boot "$PART1"
+        mkfs.ext2 -N boot "$PART1"
         if [[ "$ROOT_FS" == "btrfs" ]]; then # mkfs.btrfs requires -f flag to reformat an existing partition, mkfs.extX doesn't require nor support said flag
             mkfs."$ROOT_FS" -f "$PART2"
         else
@@ -177,7 +177,7 @@ install() {
         exit 1
     fi
 
-    
+
         clear
         echo " "
         echo " "
@@ -229,7 +229,7 @@ install() {
 
         mkdir -p /mnt/etc && echo -e "KEYMAP=us\nFONT=lat9w-16" > /mnt/etc/vconsole.conf
         sleep 1;
-        
+
         clear
         echo " "
         echo " "
@@ -243,14 +243,14 @@ install() {
 
         sed -i 's/^SigLevel\s*=\s*Required DatabaseOptional$/SigLevel    = Never/' /etc/pacman.conf # Disable GPG Check in Pacman as root key is invalid
         sudo sed -i '/^\[options\]/a DisableSandbox' /etc/pacman.conf # Fix sandbox bug
-        
+
         pacman-key --recv-keys D201F92AE42528456537C3F9B96775F34689694C
         echo 'D201F92AE42528456537C3F9B96775F34689694C:4:' >>/usr/share/pacman/keyrings/archpower-trusted
         pacman-key --populate archpower
         pacman -Sy archpower-keyring
 
         pacstrap -K /mnt base linux-xenon linux-xenon-headers wget nano vim openssh iputils iproute2 dhclient net-tools htop neofetch sudo git autoconf automake libtool base-devel libnewt zram-generator #networkmanager
-        
+
         genfstab -U /mnt >> /mnt/etc/fstab
 
         PART_UUID=$(blkid -s PARTUUID -o value $PART2)
@@ -290,18 +290,18 @@ install() {
         echo " "
         echo "Setting up user accounts"
         echo " "
-        
+
         arch-chroot /mnt /bin/bash -c "useradd -m -G wheel -s /bin/bash $USER_NAME"
         arch-chroot /mnt /bin/bash -c "sed -i 's/^#\s*PermitRootLogin\s\+prohibit-password\s*$/PermitRootLogin yes/;s/^#\s*PermitRootLogin\s\+without-password\s*$/PermitRootLogin yes/' /etc/ssh/sshd_config" # Enable root user login via SSH
         arch-chroot /mnt sh -c "mkdir -p /etc/systemd/system/getty@tty1.service.d && echo -e '[Service]\nExecStart=\nExecStart=-/usr/bin/agetty --autologin root --noclear %I $TERM' | tee /etc/systemd/system/getty@tty1.service.d/override.conf > /dev/null" # Enable autologin for first time
         arch-chroot /mnt sh -c "echo $USER_NAME':'$USER_ROOT_PASS | chpasswd" # Change ROOT user password
         arch-chroot /mnt sh -c "echo 'root:'$USER_ROOT_PASS | chpasswd" # Change ROOT user password
         arch-chroot /mnt sh -c "sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers" # Enable SUDO for users
-        
+
         echo " "
         echo "Configuring stage2 installer"
         echo " "
-        
+
         arch-chroot /mnt sh -c "echo -e '/usr/local/bin/system-manager/stage2-install.sh' > /root/.bash_profile" # Add the stage2 installer to autorun
 
         echo " "
@@ -319,7 +319,7 @@ install() {
         echo "System is rebooting in 5 seconds."
         echo "###################################################"
         echo " "
-        sleep 5; 
+        sleep 5;
         reboot
 
 
